@@ -1,0 +1,152 @@
+create database SistemaInventarios;
+use SistemaInventarios;
+set sql_mode='';
+
+create table user(
+	id int not null auto_increment primary key,
+	name varchar(50),
+	lastname varchar(50),
+	username varchar(50),
+	email varchar(255),
+	password varchar(60) null,
+	image varchar(255),
+	is_active boolean not null default 1,
+	is_admin boolean not null default 0,
+	kind int not null default 0,
+	created_at datetime
+);
+
+insert into user(name,lastname,email,password,is_active,is_admin,kind,created_at) value ("Administrador", "","admin","90b9aa7e25f80cf4f64e990b78a9fc5ebd6cecad",1,1,0,NOW());
+
+create table category(
+	id int not null auto_increment primary key,
+	image varchar(255),
+	name varchar(50),
+	description text,
+	created_at datetime
+);
+
+create table product(
+	id int not null auto_increment primary key,
+	image varchar(255),
+	barcode varchar(50),
+	name varchar(50),
+	description text,
+	inventary_min int default 10,
+	price_in float,
+	price_out float,
+	unit varchar(255),
+	presentation varchar(255),
+	user_id int,
+	category_id int,
+	created_at datetime,
+	is_active boolean default 1,
+	foreign key (category_id) references category(id),
+	foreign key (user_id) references user(id)
+);
+
+/*
+person kind
+1.- Client
+2.- Provider
+*/
+create table person(
+	id int not null auto_increment primary key,
+	image varchar(255),
+	name varchar(255),
+	lastname varchar(50),
+	dni varchar(25),
+	ruc varchar(25),
+	company varchar(255),
+	address1 varchar(255),
+	address2 varchar(255),
+	phone1 varchar(50),
+	phone2 varchar(50),
+	email1 varchar(100),
+	email2 varchar(100),
+	kind int,
+	created_at datetime
+);
+
+
+create table operation_type(
+	id int not null auto_increment primary key,
+	name varchar(50)
+);
+
+insert into operation_type (name) value ("entrada");
+insert into operation_type (name) value ("salida");
+
+create table box(
+	id int not null auto_increment primary key,
+	created_at datetime
+);
+
+
+create table sell(
+	id int not null auto_increment primary key,
+	person_id int ,
+	user_id int ,
+	operation_type_id int default 2,
+	box_id int,
+
+	total double,
+	cash double,
+	discount double,
+
+	foreign key (box_id) references box(id),
+	foreign key (operation_type_id) references operation_type(id),
+	foreign key (user_id) references user(id),
+	foreign key (person_id) references person(id),
+	created_at datetime
+);
+
+create table operation(
+	id int not null auto_increment primary key,
+	product_id int,
+	q float,
+	operation_type_id int,
+	sell_id int,
+	created_at datetime,
+	foreign key (product_id) references product(id),
+	foreign key (operation_type_id) references operation_type(id),
+	foreign key (sell_id) references sell(id)
+);
+
+create table configuration(
+	id int not null auto_increment primary key,
+	short varchar(255) unique,
+	name varchar(255) unique,
+	kind int,
+	val varchar(255)
+);
+insert into configuration(short,name,kind,val) value("title","Titulo del Sistema",2,"SistemaInventarios");
+
+create table branch (
+	id int not null auto_increment primary key,
+	name varchar(255) not null,
+	address varchar(255),
+	phone varchar(255),
+	is_active boolean not null default 1,
+	created_at datetime
+);
+
+insert into branch (id, name, address, phone, is_active, created_at) values (1, 'Sucursal Principal', 'Dirección Principal', '0999999999', 1, NOW());
+
+alter table user add column branch_id int null, add foreign key (branch_id) references branch(id);
+alter table sell add column branch_id int null, add foreign key (branch_id) references branch(id);
+alter table operation add column branch_id int null, add foreign key (branch_id) references branch(id);
+
+-- Agregar campos dni, ruc y ampliar company para personas existentes
+alter table person add column dni varchar(25) after lastname;
+alter table person add column ruc varchar(25) after dni;
+alter table person modify company varchar(255);
+alter table person modify address1 varchar(255);
+alter table person modify email1 varchar(100);
+alter table person modify email2 varchar(100);
+
+update user set branch_id = 1 where branch_id is null;
+update sell set branch_id = 1 where branch_id is null;
+update operation set branch_id = 1 where branch_id is null;
+
+
