@@ -1,3 +1,9 @@
+<?php
+if (!isset($curr_user)) {
+    $curr_user = isset($_SESSION['user_id']) ? UserData::getById($_SESSION['user_id']) : null;
+}
+?>
+
 <div class="row">
   <div class="col-md-12">
     <h1>Disponibilidad de Productos</h1>
@@ -11,7 +17,7 @@
               <input type="hidden" name="view" value="productavailability">
               <input type="text" name="product" class="form-control" placeholder="Buscar por nombre o código..." value="<?php echo isset($_GET['product']) ? $_GET['product'] : ''; ?>">
             </div>
-            <?php if($curr_user->kind == 1): ?>
+            <?php if($curr_user && $curr_user->kind == 1): ?>
             <div class="col-md-4">
               <select name="branch_id" class="form-control">
                 <option value="">Todas las sucursales</option>
@@ -37,8 +43,8 @@
         }
         
         // Si es vendedor (kind=1) y selecciona sucursal, filtra por esa sucursal
-        $branch_id_filter = null;
-        if($curr_user->kind == 1 && isset($_GET['branch_id']) && $_GET['branch_id'] != ''){
+              $branch_id_filter = null;
+        if($curr_user && $curr_user->kind == 1 && isset($_GET['branch_id']) && $_GET['branch_id'] != ''){
           $branch_id_filter = $_GET['branch_id'];
         }
         
