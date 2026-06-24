@@ -121,7 +121,7 @@ function showBarcodeModal(code, name) {
 			}
 			try {
 				new QRCode(document.getElementById("qrcode-display"), {
-					text: code,
+					text: name + "\n" + code,
 					width: 128,
 					height: 128
 				});
