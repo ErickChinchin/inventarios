@@ -139,11 +139,14 @@ foreach($sells as $sell) {
 											<a href="report/ticket.php?id=<?php echo $sell->id; ?>" target="_blank" class="btn btn-xs btn-primary text-white" title="Imprimir Ticket">
 												<i class="bi bi-receipt"></i> Ticket
 											</a>
+											<?php if($curr_user->kind == 0): ?>
 											<a href="index.php?view=delsell&id=<?php echo $sell->id; ?>" id="del-<?php echo $sell->id; ?>" class="btn btn-xs btn-danger text-white" title="Eliminar">
 												<i class="bi bi-trash"></i>
 											</a>
+											<?php endif; ?>
 										</div>
 										
+										<?php if($curr_user->kind == 0): ?>
 										<script>
 											$("#del-<?php echo $sell->id; ?>").click(function(e){
 												e.preventDefault();
@@ -153,6 +156,7 @@ foreach($sells as $sell) {
 												}
 											});
 										</script>
+										<?php endif; ?>
 									</td>
 								</tr>
 								<?php endforeach; ?>

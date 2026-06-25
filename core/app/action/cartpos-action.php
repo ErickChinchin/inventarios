@@ -62,56 +62,66 @@ $cart = isset($_SESSION["cart"]) ? $_SESSION["cart"] : array();
       <div class="p-3">
         <form method="post" id="processsellpos" action="index.php?view=processsellpos">
           <div class="mb-3">
-            <label class="form-label small">Cliente</label>
-            <?php $clients = PersonData::getClients(); ?>
-            <select name="client_id" class="form-select form-select-sm" id="client_select_pos">
-              <option value="">-- NINGUNO --</option>
-              <?php foreach($clients as $client):?>
-                <option value="<?php echo $client->id;?>"><?php echo $client->name." ".$client->lastname; if($client->dni){ echo " (C.I.: ".$client->dni.")"; }?></option>
-              <?php endforeach;?>
-            </select>
-            <button type="button" class="btn btn-info btn-sm mt-2" data-bs-toggle="modal" data-bs-target="#searchClientModalPos">
-                <i class="bi bi-search"></i> Buscar por Cédula
-            </button>
-          </div>
-          <!-- Modal de búsqueda de clientes -->
-          <div class="modal fade" id="searchClientModalPos" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog">
-              <div class="modal-content">
-                <div class="modal-header">
-                  <h5 class="modal-title">Buscar Cliente por Cédula</h5>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                  <div class="mb-3">
-                      <label class="form-label">Cédula de Identidad</label>
-                      <input type="text" id="dni_search_pos" class="form-control" placeholder="Ingrese cédula de identidad...">
-                  </div>
-                  <div id="client_search_results_pos"></div>
-                </div>
-              </div>
+            <label class="form-label small">Cliente <span id="client_selected_name" class="text-success fw-bold small"></span></label>
+            <input type="hidden" name="client_id" id="client_id_pos" value="">
+            <div class="input-group input-group-sm">
+              <input type="text" id="dni_search_pos" class="form-control" placeholder="Digite cédula del cliente..." autocomplete="off">
+              <button type="button" id="btn_clear_client_pos" class="btn btn-outline-secondary d-none" title="Quitar cliente"><i class="bi bi-x"></i></button>
             </div>
+            <div id="client_search_results_pos" class="border rounded mt-1 bg-white shadow-sm" style="display:none; max-height:160px; overflow-y:auto; position:absolute; z-index:9999; width:220px;"></div>
           </div>
           <script>
-          $(document).ready(function(){
-              $("#dni_search_pos").on("keyup", function(e){
-                  if(e.keyCode === 13){
-                      searchClientByDniPos();
+          (function(){
+            var searchTimer;
+            $("#dni_search_pos").on("keyup", function(){
+              clearTimeout(searchTimer);
+              var dni = $(this).val().trim();
+              if(dni.length < 1){
+                $("#client_search_results_pos").hide().html("");
+                return;
+              }
+              searchTimer = setTimeout(function(){
+                $.get("./?action=searchclientjson", {dni: dni}, function(data){
+                  if(!data || data.length === 0){
+                    $("#client_search_results_pos").show().html("<div class='p-2 text-muted small'>No se encontró cliente</div>");
+                    return;
                   }
-              });
-              $(document).on("click", ".select-client-pos", function(){
-                  var clientId = $(this).data("id");
-                  $("#client_select_pos").val(clientId);
-                  $("#searchClientModalPos").modal("hide");
-              });
-          });
-          function searchClientByDniPos(){
-              var dni = $("#dni_search_pos").val();
-              if(dni.length < 1){ return; }
-              $.get("./?action=searchclient", {dni: dni}, function(data){
-                  $("#client_search_results_pos").html(data);
-              });
-          }
+                  var html = "";
+                  $.each(data, function(i, c){
+                    html += "<div class='client-option p-2 border-bottom' style='cursor:pointer;' data-id='"+c.id+"' data-name='"+c.name+"' data-dni='"+c.dni+"'>"+
+                            "<strong>"+c.dni+"</strong> &mdash; "+c.name+"</div>";
+                  });
+                  $("#client_search_results_pos").show().html(html);
+                }, "json").fail(function(){
+                  $("#client_search_results_pos").show().html("<div class='p-2 text-muted small'>Error al buscar</div>");
+                });
+              }, 300);
+            });
+
+            $(document).on("click", ".client-option", function(){
+              var id   = $(this).data("id");
+              var name = $(this).data("name");
+              var dni  = $(this).data("dni");
+              $("#client_id_pos").val(id);
+              $("#dni_search_pos").val(dni).prop("readonly", true);
+              $("#client_selected_name").text("✓ "+name);
+              $("#btn_clear_client_pos").removeClass("d-none");
+              $("#client_search_results_pos").hide().html("");
+            });
+
+            $("#btn_clear_client_pos").on("click", function(){
+              $("#client_id_pos").val("");
+              $("#dni_search_pos").val("").prop("readonly", false).focus();
+              $("#client_selected_name").text("");
+              $(this).addClass("d-none");
+            });
+
+            $(document).on("click", function(e){
+              if(!$(e.target).closest("#dni_search_pos, #client_search_results_pos").length){
+                $("#client_search_results_pos").hide();
+              }
+            });
+          })();
           </script>
           <div class="mb-3">
             <label class="form-label small">Descuento</label>

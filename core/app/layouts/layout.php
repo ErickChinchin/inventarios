@@ -159,7 +159,19 @@
             <i class="bi bi-list fs-3"></i>
           </button>
 
-          <ul class="header-nav ms-auto">
+          <ul class="header-nav ms-3 me-auto">
+            <li class="nav-item d-flex flex-column justify-content-center">
+              <?php
+                $branch = $curr_user->branch_id ? BranchData::getById($curr_user->branch_id) : null;
+              ?>
+              <span class="fw-bold" style="line-height:1.2;">
+                <?php echo $curr_user->name . ' ' . $curr_user->lastname; ?>
+              </span>
+              <span class="small text-muted" style="line-height:1.2;">
+                <i class="bi bi-shop me-1"></i>
+                <?php echo $branch ? $branch->name : 'Sin sucursal'; ?>
+              </span>
+            </li>
           </ul>
           <ul class="header-nav">
             <li class="nav-item py-1">
