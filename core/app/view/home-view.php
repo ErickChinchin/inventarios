@@ -1,8 +1,9 @@
 <?php
 $products = ProductData::getAll();
 $products_array = array();
+$stocks = OperationData::getAllStocks();
 foreach($products as $product){
-	$q = OperationData::getQYesF($product->id);	
+	$q = $stocks[$product->id] ?? 0;
 	if($q <= $product->inventary_min){
 		$products_array[] = $product;
 	}

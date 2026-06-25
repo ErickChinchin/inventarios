@@ -1,8 +1,9 @@
 <?php
 $products = ProductData::getAll();
 $products_array = array();
+$stocks = OperationData::getAllStocks();
 foreach($products as $product){
-	$q = OperationData::getQYesF($product->id);	
+	$q = $stocks[$product->id] ?? 0;
 	if($q <= $product->inventary_min){
 		$products_array[] = $product;
 	}
@@ -32,7 +33,7 @@ foreach($products as $product){
 							</thead>
 							<tbody>
 								<?php foreach($products as $product):
-									$q = OperationData::getQYesF($product->id);
+									$q = $stocks[$product->id] ?? 0;
 									if($q <= $product->inventary_min):
 								?>
 								<tr class="<?php if($q==0){ echo "danger"; }else if($q<=$product->inventary_min/2){ echo "danger"; } else if($q<=$product->inventary_min){ echo "warning"; } ?>">

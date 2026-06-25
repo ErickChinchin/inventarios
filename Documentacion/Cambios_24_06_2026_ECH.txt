@@ -1,0 +1,95 @@
+
+## Cambio1 
+## Resumen de la Corrección en SistemaInventarios\core\app\view\productavailability-view.php
+
+**Problema identificado:** La vista de disponibilidad de productos fallaba con errores de PHP porque utilizaba la variable `$curr_user` (que contiene los datos del usuario logueado) sin verificar que existiera previamente. Esto ocurría en dos lugares clave: al mostrar el selector de sucursales (solo para vendedores) y al aplicar el filtro de búsqueda por local. Los warnings "Undefined variable" y "Attempt to read property on null" aparecían porque el archivo asumía incorrectamente que el layout principal siempre definía esta variable antes de incluir la vista.
+
+**Solución aplicada:** Se implementó un "guard" de seguridad al inicio del archivo que verifica si `$curr_user` está definido; si no, lo obtiene directamente desde la sesión usando `UserData::getById()`. Además, se añadió una validación `$curr_user &&` antes de cada acceso a la propiedad `kind`, tanto en la línea 14 (condición del selector de sucursales) como en la línea 41 (filtro por sucursal en la consulta). Estos cambios garantizan que el código solo intente leer propiedades del usuario cuando la variable existe y no es nula.
+
+**Resultado y estado actual:** Con estas modificaciones, los warnings de PHP desaparecen y la vista carga correctamente en todos los escenarios. La lógica de negocio se mantiene intacta: los vendedores (`kind=1`) pueden filtrar por sucursal, mientras que los clientes (`kind=2`) ven disponibilidad global sin acceder a precios o cantidades exactas. Sin embargo, el archivo aún presenta vulnerabilidades de **SQL injection** en las consultas de búsqueda y filtrado, por lo que se recomienda implementar consultas preparadas en una próxima actualización para fortalecer la seguridad del sistema.
+
+## Cambio2
+## Resumen de Correcciones - Reporte PDF de Inventario SistemaInventarios\report\inventary-pdf.php
+**Problema inicial: El reporte PDF de inventario (inventary-pdf.php) ignoraba completamente el filtro por sucursal, mostrando siempre el stock total de productos sin importar qué local se seleccionara en la vista. Esto ocurría porque la función getQYesF($product->id) se llamaba sin pasar el parámetro branch_id, calculando el inventario a nivel global. La primera corrección consistió en leer el branch_id desde la URL y pasarlo correctamente al cálculo del stock, además de mostrar el nombre de la sucursal en el encabezado del PDF para dar claridad al usuario.
+
+**Evolución del formato: El reporte pasó por tres iteraciones basadas en tus comentarios. Primero se generaban páginas separadas por sucursal, luego se unificó en una sola tabla con una fila por producto y sucursal (mostrando cantidades individuales), y finalmente se consolidó en una tabla con una sola fila por producto donde la columna "Sucursal" muestra el texto fijo "Todas las sucursales" y la cantidad es la suma total de todas las sucursales. Este último cambio eliminó la duplicación de información, mostrando el stock acumulado de cada producto en todo el sistema.
+
+**Estado actual: El reporte ahora tiene dos comportamientos claros: cuando se selecciona una sucursal específica, muestra el inventario filtrado con el nombre de ese local; cuando se elige "Todas las sucursales", genera un listado consolidado donde cada producto aparece una vez con su cantidad total sumada. Las filas con stock en cero se resaltan en rojo para identificar rápidamente productos agotados. El archivo modificado se encuentra en C:\xampp\htdocs\SistemaInventarios\report\inventary-pdf.php y ya refleja estos cambios en todas las consultas, ya sean individuales o globales.
+
+## Cambio3 
+## Resumen de Cambios - Generación de Códigos QR
+
+**Ubicación del archivo:** `C:\xampp\htdocs\SistemaInventarios\core\app\view\products-view.php`
+
+**Problema detectado:** El código QR generado para cada producto en la vista de productos solo contenía el código de barras (`$product->code`), sin incluir información adicional que permitiera identificar rápidamente el artículo al momento de escanearlo. Esto obligaba a los usuarios a recordar o buscar manualmente a qué producto pertenecía cada código numérico, reduciendo la utilidad práctica del QR en operaciones de inventario, conteos físicos o procesos de venta donde se requiere identificación inmediata del producto escaneado.
+
+**Solución implementada:** Se modificó el texto codificado en el QR para incluir tanto el nombre como el código de barras del producto, separados por un salto de línea (`\n`). El nuevo formato es `$product->name . "\n" . $product->code`, lo que permite que al escanear el QR con cualquier lector estándar, la información se muestre en dos líneas claras: primero el nombre descriptivo del producto y debajo su código numérico. Este cambio se aplicó en la línea donde se genera el QR mediante la biblioteca utilizada por el sistema.
+
+**Resultado y beneficio:** Ahora al escanear un código QR desde el sistema, el usuario visualizará inmediatamente información como "Hojas" seguido de "7504681363903", facilitando la identificación del producto sin necesidad de consultar la base de datos o memorizar códigos. El formato con salto de línea es compatible con la mayoría de lectores QR y mejora significativamente la experiencia de usuario en tareas cotidianas de inventario, reduciendo errores y agilizando los procesos que dependen del escaneo de códigos. El cambio mantiene la funcionalidad original del sistema mientras añade un valor práctico inmediato.
+
+##Cambio4
+## Resumen de Cambios - Buscador de Clientes por Cédula en POS
+
+**Archivos modificados y creados:**
+- **Modificado:** `C:\xampp\htdocs\SistemaInventarios\core\app\action\cartpos-action.php`
+- **Creado:** `C:\xampp\htdocs\SistemaInventarios\core\app\action\searchclientjson-action.php`
+
+**Problema detectado:** El punto de venta (POS) utilizaba un campo `<select>` para seleccionar al cliente, mostrando una lista desplegable con todos los clientes registrados. Este método era poco práctico cuando la base de clientes crecía, ya que obligaba al usuario a buscar manualmente entre una larga lista de nombres y cédulas. Además, no permitía buscar rápidamente por cédula, que es el identificador más común en transacciones de venta, ralentizando el proceso de facturación y aumentando el riesgo de errores al seleccionar el cliente equivocado.
+
+**Solución implementada:** Se reemplazó el `<select>` por un **campo de texto con búsqueda en tiempo real (autocompletado)**, que permite escribir la cédula o nombre del cliente y mostrar resultados coincidentes de forma dinámica. Para ello, se creó una nueva acción `searchclientjson-action.php` que devuelve resultados en formato JSON al escribir en el campo, y se modificó `cartpos-action.php` para incluir el nuevo campo de búsqueda, un contenedor de resultados y lógica JavaScript que maneja la selección del cliente. El sistema ahora: (1) busca clientes mientras se escribe, (2) muestra una lista desplegable con cédula y nombre, (3) al hacer clic en un resultado, fija la cédula seleccionada, muestra el nombre con un ícono de verificación y guarda el ID del cliente en un campo oculto, y (4) permite limpiar la selección con un botón "×".
+
+**Resultado y beneficio:** La nueva interfaz permite seleccionar clientes de manera mucho más rápida y eficiente, especialmente cuando hay muchos registrados. El usuario solo necesita escribir la cédula (o parte del nombre) y el sistema filtra automáticamente, mostrando las opciones coincidentes. El flujo de venta se agiliza, se reducen errores de selección y la experiencia de usuario mejora notablemente. El `client_id` sigue enviándose por POST al procesar la venta, por lo que el resto del sistema (nota de venta, reportes, etc.) no requiere modificaciones adicionales, manteniendo la compatibilidad con los módulos existentes.
+
+##Cambio5
+## Resumen de Cambios - Visibilidad de Botones en Vista de Ventas (`sells-view.php`)
+
+**Ubicación del archivo:** `C:\xampp\htdocs\SistemaInventarios\core\app\view\sells-view.php`
+
+**Problema detectado:** En la vista de ventas (`?view=sells`), todos los usuarios (incluyendo cajeros y clientes) podían ver y acceder a los botones de **modificar** y **eliminar** ventas. Esto representaba un riesgo de seguridad y operativo, ya que los cajeros (`kind=1`) y clientes (`kind=2`) no deberían tener permisos para modificar o anular transacciones, funciones que deben estar reservadas exclusivamente para el administrador del sistema (`kind=0`). La falta de control de permisos en la interfaz permitía que usuarios no autorizados pudieran realizar acciones críticas sobre el historial de ventas.
+
+**Solución implementada:** Se modificó la vista `sells-view.php` para envolver los botones de **modificar** y **eliminar** dentro de una validación condicional que verifica el tipo de usuario (`$curr_user->kind`). Ahora, estos botones solo se renderizan y muestran cuando el usuario logueado es administrador (`kind == 0`). Los cajeros y clientes solo visualizan los botones de **Detalle** (para ver la información completa de la venta) y **Ticket** (para imprimir o ver el comprobante), que son acciones permitidas para su rol sin comprometer la integridad de los datos.
+
+**Resultado y beneficio:** La interfaz ahora se adapta dinámicamente al rol del usuario, mejorando la seguridad y la experiencia de uso. Los administradores mantienen el control total sobre las ventas (modificar, eliminar, ver detalle y ticket), mientras que los cajeros y clientes solo acceden a las funciones que necesitan para su trabajo diario (consultar y obtener comprobantes). Esto reduce el riesgo de operaciones no autorizadas, simplifica la interfaz para usuarios con menos privilegios y alinea el sistema con las mejores prácticas de control de acceso basado en roles (RBAC). El archivo reemplazado en `C:\xampp\htdocs\SistemaInventarios\core\app\view\sells-view.php` ya refleja estos cambios.
+
+
+##Cambio6
+## Resumen de Cambios - Información de Usuario y Sucursal en el Header (`layout.php`)
+
+**Ubicación del archivo:** `C:\xampp\htdocs\SistemaInventarios\core\app\layouts\layout.php`
+
+**Problema detectado:** Después de iniciar sesión, el header de la interfaz mostraba un espacio vacío que no proporcionaba información útil sobre el usuario activo. Los cajeros y administradores necesitaban identificar rápidamente qué sucursal estaban manejando y bajo qué nombre de usuario estaban operando, especialmente en entornos con múltiples locales o turnos. La falta de esta información dificultaba la contextualización de las acciones realizadas y podía generar confusiones al momento de procesar ventas o consultar inventario.
+
+**Solución implementada:** Se modificó el layout principal (`layout.php`) para agregar un bloque informativo en el header que muestra:
+- **Nombre del usuario** (en negrita y tamaño grande)
+- **Sucursal asignada** (en color gris con un ícono de tienda 🏪)
+
+Este bloque se insertó en el espacio previamente vacío, utilizando los datos del usuario logueado (`$curr_user->name`) y su relación con la sucursal a través de `$curr_user->getBranch()`. Si el usuario no tiene una sucursal asignada, se muestra un mensaje genérico "Sin sucursal" para evitar errores o información incompleta.
+
+**Resultado y beneficio:** Ahora, al iniciar sesión, el personal del sistema visualiza inmediatamente en la parte superior quién está operando y en qué sucursal, lo que mejora significativamente la orientación y el control operativo. Los cajeros pueden confirmar que están trabajando en la sucursal correcta antes de procesar ventas, y los administradores tienen un recordatorio visual de su contexto actual. Esta información contextual reduce errores, agiliza la identificación de incidencias y mejora la experiencia general del usuario. El archivo reemplazado en `C:\xampp\htdocs\SistemaInventarios\core\app\layouts\layout.php` ya refleja estos cambios en todo el sistema.
+
+##Cambio7
+## Resumen de Cambios - Transacciones MySQL en `processsellpos-view.php`
+
+**Ubicación del archivo:** `C:\xampp\htdocs\SistemaInventarios\core\app\view\processsellpos-view.php`
+
+**Problema detectado:** El proceso de ventas multi-producto en el POS ejecutaba cada inserción en la base de datos de forma independiente, sin un mecanismo que garantizara la integridad de toda la operación. Esto significaba que si una venta de 5 productos fallaba al insertar el tercer producto (por caída de conexión, timeout, disco lleno o error de llave foránea), los dos primeros productos ya habrían descontado su stock y la tabla `sell` ya tendría un registro de venta incompleto. La base de datos quedaba en un estado inconsistente: una venta registrada con productos faltantes y un inventario parcialmente descontado, sin que el sistema pudiera detectar o corregir automáticamente el error.
+
+**Solución implementada:** Se envolvió todo el proceso de inserción en una **transacción MySQL** utilizando `begin_transaction()`, `commit()` y `rollback()`. El flujo ahora funciona así: (1) se inicia la transacción, (2) se ejecutan todas las inserciones (venta + cada producto), (3) si todas son exitosas, se confirma con `commit()` y los cambios se hacen permanentes, (4) si cualquier inserción falla, se ejecuta `rollback()` y MySQL revierte **todas** las operaciones de la transacción, dejando la base de datos exactamente como estaba antes de iniciar el proceso. Esto garantiza que una venta solo se registre si todos sus productos se procesaron correctamente.
+
+**Resultado y beneficio:** La integridad de los datos queda completamente protegida ante fallos inesperados. Aunque en entornos locales como XAMPP estos fallos son poco frecuentes, en producción (hosting compartido, múltiples usuarios, cortes de red) el riesgo es real y el impacto de un error sin transacciones es grave y difícil de rastrear. El cambio no afecta el rendimiento y añade una capa crítica de seguridad operativa. El archivo reemplazado en `C:\xampp\htdocs\SistemaInventarios\core\app\view\processsellpos-view.php` ahora incluye esta lógica, y se recomienda verificar que las tablas `sell` y `operation` usen el motor **InnoDB** para que el `rollback()` funcione correctamente.
+
+##Cambio8
+## Resumen de Cambios - Optimización de Consultas de Stock en el Sistema
+
+**Ubicación de archivos modificados:**
+- `core/app/model/OperationData.php`
+- `core/app/view/inventary-view.php`
+- `core/app/view/alerts-view.php`
+- `core/app/view/home-view.php`
+
+**Problema detectado:** El sistema calculaba el stock de cada producto realizando **3 consultas independientes a la base de datos por producto**, lo que generaba un rendimiento extremadamente ineficiente. Por ejemplo, con 200 productos en el inventario, se ejecutaban 600 consultas cada vez que se cargaba la página de inventario, alertas o el dashboard. Este problema se originaba en el método `getQYesF()`, que para cada producto: (1) traía todas las operaciones del producto, (2) consultaba el ID del tipo "entrada", y (3) consultaba el ID del tipo "salida". Además, las consultas 2 y 3 se repetían innecesariamente para cada producto, multiplicando el impacto en el rendimiento y ralentizando la experiencia del usuario.
+
+**Solución implementada:** Se reescribió el método `getQYesF()` para que calcule el stock con una **única consulta SQL** utilizando `SUM(CASE WHEN ...)`, que delega la suma de entradas y salidas directamente al motor de la base de datos. Además, se creó un nuevo método `getAllStocks()` que obtiene el stock de **todos los productos** en una sola consulta agrupada por `product_id`. Las vistas de listado masivo (inventario, alertas, dashboard) ahora llaman `getAllStocks()` una vez al inicio, guardan los resultados en un array asociativo y acceden a él durante el recorrido de productos (`$stocks[$product->id] ?? 0`), eliminando completamente las consultas dentro de los bucles `foreach`.
+
+**Resultado y beneficio:** El rendimiento mejora drásticamente en todas las vistas que muestran listados de productos. La carga de inventario con 200 productos pasa de **600 consultas a solo 2 consultas** (una para el listado de productos y otra para obtener todos los stocks). Las páginas de alertas y el dashboard experimentan la misma mejora, reduciendo el tiempo de carga y la carga del servidor. Esta optimización es especialmente crítica en entornos con catálogos grandes o múltiples usuarios simultáneos, ya que elimina un cuello de botella significativo en la arquitectura del sistema. Los archivos reemplazados en las rutas indicadas ya incluyen estos cambios, manteniendo los mismos resultados de stock pero con un rendimiento óptimo.
+

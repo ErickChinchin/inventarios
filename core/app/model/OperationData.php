@@ -1,4 +1,17 @@
 <?php
+
+/*
+getQYesF() — de 3 queries a 1. Antes traía todas las filas a PHP y sumaba. Ahora MySQL hace la suma directamente con SUM(CASE WHEN ...). El resultado es el mismo número pero con un solo viaje a la BD.
+getAllStocks() — método nuevo. Una sola query devuelve el stock de todos los productos agrupado por product_id. Las vistas de inventario, alertas y dashboard ahora llaman esto una vez al inicio y luego acceden al array con $stocks[$product->id] ?? 0 sin tocar la BD dentro del foreach.
+
+Archivos modificados
+
+core/app/model/OperationData.php
+core/app/view/inventary-view.php
+core/app/view/alerts-view.php
+core/app/view/home-view.php
+*/
+
 class OperationData {
 	public static $tablename = "operation";
 	public $id;
@@ -98,16 +111,25 @@ class OperationData {
 
 
 	public static function getQYesF($product_id, $branch_id = null){
-		$q=0;
-		$operations = self::getAllByProductId($product_id, $branch_id);
-		$input_id = OperationTypeData::getByName("entrada")->id;
-		$output_id = OperationTypeData::getByName("salida")->id;
-		foreach($operations as $operation){
-				if($operation->operation_type_id==$input_id){ $q+=$operation->q; }
-				else if($operation->operation_type_id==$output_id){  $q+=(-$operation->q); }
+		$sql = "SELECT COALESCE(SUM(CASE WHEN operation_type_id = 1 THEN q WHEN operation_type_id = 2 THEN -q ELSE 0 END), 0) as stock FROM ".self::$tablename." WHERE product_id=$product_id";
+		if($branch_id != null){ $sql .= " AND branch_id=$branch_id"; }
+		$query = Executor::doit($sql);
+		$row = $query[0]->fetch_assoc();
+		return $row ? floatval($row["stock"]) : 0;
+	}
+
+	// Devuelve stock de TODOS los productos en una sola query
+	// Uso: $stocks = OperationData::getAllStocks();  $stock = $stocks[$product_id] ?? 0;
+	public static function getAllStocks($branch_id = null){
+		$sql = "SELECT product_id, COALESCE(SUM(CASE WHEN operation_type_id = 1 THEN q WHEN operation_type_id = 2 THEN -q ELSE 0 END), 0) as stock FROM ".self::$tablename;
+		if($branch_id != null){ $sql .= " WHERE branch_id=$branch_id"; }
+		$sql .= " GROUP BY product_id";
+		$query = Executor::doit($sql);
+		$stocks = array();
+		while($row = $query[0]->fetch_assoc()){
+			$stocks[$row["product_id"]] = floatval($row["stock"]);
 		}
-		// print_r($data);
-		return $q;
+		return $stocks;
 	}
 
 

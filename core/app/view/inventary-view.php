@@ -14,8 +14,10 @@ $total_items = 0;
 $low_stock_count = 0;
 $inventory_value = 0;
 
+$stocks = OperationData::getAllStocks($selected_branch_id);
+
 foreach($products as $product) {
-	$q = OperationData::getQYesF($product->id, $selected_branch_id);
+	$q = $stocks[$product->id] ?? 0;
 	$total_items += $q;
 	if($q <= $product->inventary_min) {
 		$low_stock_count++;
@@ -125,7 +127,7 @@ foreach($products as $product) {
 							</thead>
 							<tbody>
 								<?php foreach($products as $product):
-									$q = OperationData::getQYesF($product->id, $selected_branch_id);
+									$q = $stocks[$product->id] ?? 0;
 									
 									// Determinar el badge de estado
 									if($q == 0) {
